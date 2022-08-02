@@ -32,9 +32,24 @@ class App extends Component {
 			imageUrl: '',
 			box: {},
 			route: 'signin',
-			isSignedIn: false
+			isSignedIn: false,
+			userProfile: {
+				id: '',
+				name: '',
+				email: '',
+				entries: 0,
+				joined: ''
+			} //userProfile
 		} // this.state
 	} // constructor
+	
+
+	componentDidUpdate() {
+		console.log('componentDidUpdate');
+		console.log('------------------');
+		console.log('User profile:');
+		console.log(this.state.userProfile);
+	} //componentDidUpdate
 	
 	calculateFaceLocation = (data) => {
 		const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
@@ -77,9 +92,55 @@ class App extends Component {
 	onButtonSubmit = (event) => {
 		this.setState({imageUrl: this.state.input});
 		app.models.predict(Clarifai.FACE_DETECT_MODEL, this.state.input)
-			.then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+			.then(response => {
+				if (response) {
+					fetch('http://localhost:3000/image', 
+					  {
+						method: 'put',
+						headers: {
+							'Content-Type': 'application/json'
+						}, // header attributes
+						body: JSON.stringify( 
+							{
+								id: this.state.userProfile.id
+							}  // json info in body
+						) // JSON.stringify
+					  } // fetch attributes`
+					 ) // fetch
+					 .then(response => {
+						 if (response.ok) {
+							 return response.json()
+						 } //if response.ok
+						 else throw(response)
+					 }) // .then response =>
+					 .then(data => {
+						 this.setState(
+							Object.assign(this.state.userProfile, 
+							{entries: data}));
+						 this.props.onRouteChange('signout');
+					 }) // .then data=>
+					 .catch ((error) => {
+						 console.log('Error in signin:');
+						 console.log('HTTP response status: ', error.status);
+						 console.log('HTTP response text ', error.text);
+					 }) // .catch
+
+				} // if a response exists
+				this.displayFaceBox(this.calculateFaceLocation(response))
+			}) // .then response
 			.catch(err => console.log(err));
 	} // onButtonSubmit()
+	
+	setUserProfile = (profile) => {
+		this.setState({userProfile: {
+			id: profile.id,
+			name: profile.name,
+			email: profile.email,
+			entries: profile.entries,
+			joined: profile.joined
+			} // userProfile
+		}); // setState
+	} // setUserProfile
 	
 	render(){
 		var Components;
@@ -92,7 +153,8 @@ class App extends Component {
 						onRouteChange={this.onRouteChange}
 						isSignedIn={this.state.isSignedIn}/>
 					<Signin 
-						onRouteChange={this.onRouteChange}/>
+						onRouteChange={this.onRouteChange}
+						setUserProfile={this.setUserProfile}/>
 				</div>;
 		} // if route is signin
 		else if (this.state.route === 'register'){
@@ -112,7 +174,9 @@ class App extends Component {
 						onRouteChange={this.onRouteChange}
 						isSignedIn={this.state.isSignedIn}/>
 					<Logo />
-					<Rank />
+					<Rank 
+						name={this.state.userProfile.name}
+						entries={this.state.userProfile.entries} />
 					<ImageLinkForm 
 						onInputChange={this.onInputChange}
 						onButtonSubmit={this.onButtonSubmit} />
